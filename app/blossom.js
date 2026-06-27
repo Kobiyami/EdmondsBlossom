@@ -1,4 +1,5 @@
 /*Converted to JS from Python by Matt Krick. Original: http://jorisvr.nl/maximummatching.html*/
+/*Fixed: all implicit global variables now properly declared with var (strict mode compatible)*/
 
 module.exports = function (edges, maxCardinality) {
   if (edges.length === 0) {
@@ -6,7 +7,6 @@ module.exports = function (edges, maxCardinality) {
   }
   var edmonds = new Edmonds(edges, maxCardinality);
   return edmonds.maxWeightMatching();
-
 };
 
 var Edmonds = function (edges, maxCardinality) {
@@ -18,7 +18,6 @@ var Edmonds = function (edges, maxCardinality) {
 
 Edmonds.prototype.maxWeightMatching = function () {
   for (var t = 0; t < this.nVertex; t++) {
-    //console.log('DEBUG: STAGE ' + t);
     this.label = filledArray(2 * this.nVertex, 0);
     this.bestEdge = filledArray(2 * this.nVertex, -1);
     this.blossomBestEdges = initArrArr(2 * this.nVertex);
@@ -31,18 +30,16 @@ Edmonds.prototype.maxWeightMatching = function () {
     }
     var augmented = false;
     while (true) {
-      //console.log('DEBUG: SUBSTAGE');
       while (this.queue.length > 0 && !augmented) {
         v = this.queue.pop();
-        //console.log('DEBUG: POP ', 'v=' + v);
-        //console.assert(this.label[this.inBlossom[v]] == 1);
         for (var ii = 0; ii < this.neighbend[v].length; ii++) {
           var p = this.neighbend[v][ii];
           var k = ~~(p / 2);
           var w = this.endpoint[p];
           if (this.inBlossom[v] === this.inBlossom[w]) continue;
+          var kSlack;
           if (!this.allowEdge[k]) {
-            var kSlack = this.slack(k);
+            kSlack = this.slack(k);
             if (kSlack <= 0) {
               this.allowEdge[k] = true;
             }
@@ -60,7 +57,6 @@ Edmonds.prototype.maxWeightMatching = function () {
                 break;
               }
             } else if (this.label[w] === 0) {
-              //console.assert(this.label[this.inBlossom[w]] === 2);
               this.label[w] = 2;
               this.labelEnd[w] = p ^ 1;
             }
@@ -78,9 +74,9 @@ Edmonds.prototype.maxWeightMatching = function () {
       }
       if (augmented) break;
       var deltaType = -1;
-      var delta = [];
-      var deltaEdge = [];
-      var deltaBlossom = [];
+      var delta = 0;
+      var deltaEdge = -1;
+      var deltaBlossom = -1;
       if (!this.maxCardinality) {
         deltaType = 1;
         delta = getMin(this.dualVar, 0, this.nVertex - 1);
@@ -95,10 +91,9 @@ Edmonds.prototype.maxWeightMatching = function () {
           }
         }
       }
-      for (b = 0; b < 2 * this.nVertex; b++) {
+      for (var b = 0; b < 2 * this.nVertex; b++) {
         if (this.blossomParent[b] === -1 && this.label[b] === 1 && this.bestEdge[b] !== -1) {
           kSlack = this.slack(this.bestEdge[b]);
-          ////console.assert((kSlack % 2) == 0);
           d = kSlack / 2;
           if (deltaType === -1 || d < delta) {
             delta = d;
@@ -115,7 +110,6 @@ Edmonds.prototype.maxWeightMatching = function () {
         }
       }
       if (deltaType === -1) {
-        //console.assert(this.maxCardinality);
         deltaType = 1;
         delta = Math.max(0, getMin(this.dualVar, 0, this.nVertex - 1));
       }
@@ -136,7 +130,6 @@ Edmonds.prototype.maxWeightMatching = function () {
           }
         }
       }
-      //console.log('DEBUG: deltaType', deltaType, ' delta: ', delta);
       if (deltaType === 1) {
         break;
       } else if (deltaType === 2) {
@@ -149,14 +142,12 @@ Edmonds.prototype.maxWeightMatching = function () {
           j = j ^ i;
           i = i ^ j;
         }
-        //console.assert(this.label[this.inBlossom[i]] == 1);
         this.queue.push(i);
       } else if (deltaType === 3) {
         this.allowEdge[deltaEdge] = true;
         i = this.edges[deltaEdge][0];
         j = this.edges[deltaEdge][1];
         wt = this.edges[deltaEdge][2];
-        //console.assert(this.label[this.inBlossom[i]] == 1);
         this.queue.push(i);
       } else if (deltaType === 4) {
         this.expandBlossom(deltaBlossom, false);
@@ -175,7 +166,6 @@ Edmonds.prototype.maxWeightMatching = function () {
     }
   }
   for (v = 0; v < this.nVertex; v++) {
-    //console.assert(this.mate[v] == -1 || this.mate[this.mate[v]] == v);
   }
   return this.mate;
 };
@@ -207,24 +197,19 @@ Edmonds.prototype.blossomLeaves = function (b) {
 };
 
 Edmonds.prototype.assignLabel = function (w, t, p) {
-  //console.log('DEBUG: assignLabel(' + w + ',' + t + ',' + p + '}');
   var b = this.inBlossom[w];
-  //console.assert(this.label[w] === 0 && this.label[b] === 0);
   this.label[w] = this.label[b] = t;
   this.labelEnd[w] = this.labelEnd[b] = p;
   this.bestEdge[w] = this.bestEdge[b] = -1;
   if (t === 1) {
     this.queue.push.apply(this.queue, this.blossomLeaves(b));
-    //console.log('DEBUG: PUSH ' + this.blossomLeaves(b).toString());
   } else if (t === 2) {
     var base = this.blossomBase[b];
-    //console.assert(this.mate[base] >= 0);
     this.assignLabel(this.endpoint[this.mate[base]], 1, this.mate[base] ^ 1);
   }
 };
 
 Edmonds.prototype.scanBlossom = function (v, w) {
-  //console.log('DEBUG: scanBlossom(' + v + ',' + w + ')');
   var path = [];
   var base = -1;
   while (v !== -1 || w !== -1) {
@@ -233,17 +218,13 @@ Edmonds.prototype.scanBlossom = function (v, w) {
       base = this.blossomBase[b];
       break;
     }
-    //console.assert(this.label[b] === 1);
     path.push(b);
     this.label[b] = 5;
-    //console.assert(this.labelEnd[b] === this.mate[this.blossomBase[b]]);
     if (this.labelEnd[b] === -1) {
       v = -1;
     } else {
       v = this.endpoint[this.labelEnd[b]];
       b = this.inBlossom[v];
-      //console.assert(this.label[b] === 2);
-      //console.assert(this.labelEnd[b] >= 0);
       v = this.endpoint[this.labelEnd[b]];
     }
     if (w !== -1) {
@@ -253,8 +234,8 @@ Edmonds.prototype.scanBlossom = function (v, w) {
     }
   }
   for (var ii = 0; ii < path.length; ii++) {
-    b = path[ii];
-    this.label[b] = 1;
+    var bb = path[ii];
+    this.label[bb] = 1;
   }
   return base;
 };
@@ -266,19 +247,16 @@ Edmonds.prototype.addBlossom = function (base, k) {
   var bb = this.inBlossom[base];
   var bv = this.inBlossom[v];
   var bw = this.inBlossom[w];
-  b = this.unusedBlossoms.pop();
-  //console.log('DEBUG: addBlossom(' + base + ',' + k + ')' + ' (v=' + v + ' w=' + w + ')' + ' -> ' + b);
+  var b = this.unusedBlossoms.pop();
   this.blossomBase[b] = base;
   this.blossomParent[b] = -1;
   this.blossomParent[bb] = b;
-  path = this.blossomChilds[b] = [];
+  var path = this.blossomChilds[b] = [];
   var endPs = this.blossomEndPs[b] = [];
   while (bv !== bb) {
     this.blossomParent[bv] = b;
     path.push(bv);
     endPs.push(this.labelEnd[bv]);
-    //console.assert(this.label[bv] === 2 || (this.label[bv] === 1 && this.labelEnd[bv] === this.mate[this.blossomBase[bv]]));
-    //console.assert(this.labelEnd[bv] >= 0);
     v = this.endpoint[this.labelEnd[bv]];
     bv = this.inBlossom[v];
   }
@@ -290,12 +268,9 @@ Edmonds.prototype.addBlossom = function (base, k) {
     this.blossomParent[bw] = b;
     path.push(bw);
     endPs.push(this.labelEnd[bw] ^ 1);
-    //console.assert(this.label[bw] === 2 || (this.label[bw] === 1 && this.labelEnd[bw] === this.mate[this.blossomBase[bw]]));
-    //console.assert(this.labelEnd[bw] >= 0);
     w = this.endpoint[this.labelEnd[bw]];
     bw = this.inBlossom[w];
   }
-  //console.assert(this.label[bb] === 1);
   this.label[b] = 1;
   this.labelEnd[b] = this.labelEnd[bb];
   this.dualVar[b] = 0;
@@ -310,21 +285,21 @@ Edmonds.prototype.addBlossom = function (base, k) {
   var bestEdgeTo = filledArray(2 * this.nVertex, -1);
   for (ii = 0; ii < path.length; ii++) {
     bv = path[ii];
+    var nbLists;
     if (this.blossomBestEdges[bv].length === 0) {
-      var nbLists = [];
+      nbLists = [];
       leaves = this.blossomLeaves(bv);
       for (var x = 0; x < leaves.length; x++) {
         v = leaves[x];
         nbLists[x] = [];
         for (var y = 0; y < this.neighbend[v].length; y++) {
-          var p = this.neighbend[v][y];
-          nbLists[x].push(~~(p / 2));
+          var pp = this.neighbend[v][y];
+          nbLists[x].push(~~(pp / 2));
         }
       }
     } else {
       nbLists = [this.blossomBestEdges[bv]];
     }
-    //console.log('DEBUG: nbLists ' + nbLists.toString());
     for (x = 0; x < nbLists.length; x++) {
       var nbList = nbLists[x];
       for (y = 0; y < nbList.length; y++) {
@@ -354,7 +329,6 @@ Edmonds.prototype.addBlossom = function (base, k) {
     }
   }
   this.blossomBestEdges[b] = be;
-  //console.log('DEBUG: blossomBestEdges[' + b + ']= ' + this.blossomBestEdges[b].toString());
   this.bestEdge[b] = -1;
   for (ii = 0; ii < this.blossomBestEdges[b].length; ii++) {
     k = this.blossomBestEdges[b][ii];
@@ -362,11 +336,9 @@ Edmonds.prototype.addBlossom = function (base, k) {
       this.bestEdge[b] = k;
     }
   }
-  //console.log('DEBUG: blossomChilds[' + b + ']= ' + this.blossomChilds[b].toString());
 };
 
 Edmonds.prototype.expandBlossom = function (b, endStage) {
-  //console.log('DEBUG: expandBlossom(' + b + ',' + endStage + ') ' + this.blossomChilds[b].toString());
   for (var ii = 0; ii < this.blossomChilds[b].length; ii++) {
     var s = this.blossomChilds[b][ii];
     this.blossomParent[s] = -1;
@@ -377,19 +349,19 @@ Edmonds.prototype.expandBlossom = function (b, endStage) {
     } else {
       var leaves = this.blossomLeaves(s);
       for (var jj = 0; jj < leaves.length; jj++) {
-        v = leaves[jj];
+        var v = leaves[jj];
         this.inBlossom[v] = s;
       }
     }
   }
   if (!endStage && this.label[b] === 2) {
-    //console.assert(this.labelEnd[b] >= 0);
     var entryChild = this.inBlossom[this.endpoint[this.labelEnd[b] ^ 1]];
     var j = this.blossomChilds[b].indexOf(entryChild);
+    var jStep, endpTrick;
     if ((j & 1)) {
       j -= this.blossomChilds[b].length;
-      var jStep = 1;
-      var endpTrick = 0;
+      jStep = 1;
+      endpTrick = 0;
     } else {
       jStep = -1;
       endpTrick = 1;
@@ -407,7 +379,6 @@ Edmonds.prototype.expandBlossom = function (b, endStage) {
     }
     var bv = pIndex(this.blossomChilds[b], j);
     this.label[this.endpoint[p ^ 1]] = this.label[bv] = 2;
-
     this.labelEnd[this.endpoint[p ^ 1]] = this.labelEnd[bv] = p;
     this.bestEdge[bv] = -1;
     j += jStep;
@@ -418,13 +389,13 @@ Edmonds.prototype.expandBlossom = function (b, endStage) {
         continue;
       }
       leaves = this.blossomLeaves(bv);
+      var leafV = -1;
       for (ii = 0; ii < leaves.length; ii++) {
         v = leaves[ii];
-        if (this.label[v] !== 0) break;
+        if (this.label[v] !== 0) { leafV = v; break; }
       }
-      if (this.label[v] !== 0) {
-        //console.assert(this.label[v] === 2);
-        //console.assert(this.inBlossom[v] === bv);
+      if (leafV !== -1) {
+        v = leafV;
         this.label[v] = 0;
         this.label[this.endpoint[this.mate[this.blossomBase[bv]]]] = 0;
         this.assignLabel(v, 2, this.labelEnd[v]);
@@ -441,7 +412,6 @@ Edmonds.prototype.expandBlossom = function (b, endStage) {
 };
 
 Edmonds.prototype.augmentBlossom = function (b, v) {
-  //console.log('DEBUG: augmentBlossom(' + b + ',' + v + ')');
   var i, j;
   var t = v;
   while (this.blossomParent[t] !== b) {
@@ -451,10 +421,11 @@ Edmonds.prototype.augmentBlossom = function (b, v) {
     this.augmentBlossom(t, v);
   }
   i = j = this.blossomChilds[b].indexOf(t);
+  var jStep, endpTrick;
   if ((i & 1)) {
     j -= this.blossomChilds[b].length;
-    var jStep = 1;
-    var endpTrick = 0;
+    jStep = 1;
+    endpTrick = 0;
   } else {
     jStep = -1;
     endpTrick = 1;
@@ -474,30 +445,25 @@ Edmonds.prototype.augmentBlossom = function (b, v) {
     this.mate[this.endpoint[p]] = p ^ 1;
     this.mate[this.endpoint[p ^ 1]] = p;
   }
-  //console.log('DEBUG: PAIR ' + this.endpoint[p] + ' ' + this.endpoint[p^1] + '(k=' + ~~(p/2) + ')');
   this.blossomChilds[b] = this.blossomChilds[b].slice(i).concat(this.blossomChilds[b].slice(0, i));
   this.blossomEndPs[b] = this.blossomEndPs[b].slice(i).concat(this.blossomEndPs[b].slice(0, i));
   this.blossomBase[b] = this.blossomBase[this.blossomChilds[b][0]];
-  //console.assert(this.blossomBase[b] === v);
 };
 
 Edmonds.prototype.augmentMatching = function (k) {
   var v = this.edges[k][0];
   var w = this.edges[k][1];
-  //console.log('DEBUG: augmentMatching(' + k + ')' + ' (v=' + v + ' ' + 'w=' + w);
-  //console.log('DEBUG: PAIR ' + v + ' ' + w + '(k=' + k + ')');
   for (var ii = 0; ii < 2; ii++) {
+    var s, p;
     if (ii === 0) {
-      var s = v;
-      var p = 2 * k + 1;
+      s = v;
+      p = 2 * k + 1;
     } else {
       s = w;
       p = 2 * k;
     }
     while (true) {
       var bs = this.inBlossom[s];
-      //console.assert(this.label[bs] === 1);
-      //console.assert(this.labelEnd[bs] === this.mate[this.blossomBase[bs]]);
       if (bs >= this.nVertex) {
         this.augmentBlossom(bs, s);
       }
@@ -505,45 +471,38 @@ Edmonds.prototype.augmentMatching = function (k) {
       if (this.labelEnd[bs] === -1) break;
       var t = this.endpoint[this.labelEnd[bs]];
       var bt = this.inBlossom[t];
-      //console.assert(this.label[bt] === 2);
-      //console.assert(this.labelEnd[bt] >= 0);
       s = this.endpoint[this.labelEnd[bt]];
-      var j = this.endpoint[this.labelEnd[bt] ^ 1];
-      //console.assert(this.blossomBase[bt] === t);
+      var jj = this.endpoint[this.labelEnd[bt] ^ 1];
       if (bt >= this.nVertex) {
-        this.augmentBlossom(bt, j);
+        this.augmentBlossom(bt, jj);
       }
-      this.mate[j] = this.labelEnd[bt];
+      this.mate[jj] = this.labelEnd[bt];
       p = this.labelEnd[bt] ^ 1;
-      //console.log('DEBUG: PAIR ' + s + ' ' + t + '(k=' + ~~(p/2) + ')');
-
-
     }
   }
 };
 
-
-//INIT STUFF//
 Edmonds.prototype.init = function () {
   this.nVertexInit();
   this.maxWeightInit();
   this.endpointInit();
   this.neighbendInit();
   this.mate = filledArray(this.nVertex, -1);
-  this.label = filledArray(2 * this.nVertex, 0); //remove?
+  this.label = filledArray(2 * this.nVertex, 0);
   this.labelEnd = filledArray(2 * this.nVertex, -1);
   this.inBlossomInit();
   this.blossomParent = filledArray(2 * this.nVertex, -1);
   this.blossomChilds = initArrArr(2 * this.nVertex);
   this.blossomBaseInit();
   this.blossomEndPs = initArrArr(2 * this.nVertex);
-  this.bestEdge = filledArray(2 * this.nVertex, -1); //remove?
-  this.blossomBestEdges = initArrArr(2 * this.nVertex); //remove?
+  this.bestEdge = filledArray(2 * this.nVertex, -1);
+  this.blossomBestEdges = initArrArr(2 * this.nVertex);
   this.unusedBlossomsInit();
   this.dualVarInit();
-  this.allowEdge = filledArray(this.nEdge, false); //remove?
-  this.queue = []; //remove?
+  this.allowEdge = filledArray(this.nEdge, false);
+  this.queue = [];
 };
+
 Edmonds.prototype.blossomBaseInit = function () {
   var base = [];
   for (var i = 0; i < this.nVertex; i++) {
@@ -552,11 +511,13 @@ Edmonds.prototype.blossomBaseInit = function () {
   var negs = filledArray(this.nVertex, -1);
   this.blossomBase = base.concat(negs);
 };
+
 Edmonds.prototype.dualVarInit = function () {
   var mw = filledArray(this.nVertex, this.maxWeight);
   var zeros = filledArray(this.nVertex, 0);
   this.dualVar = mw.concat(zeros);
 };
+
 Edmonds.prototype.unusedBlossomsInit = function () {
   var i, unusedBlossoms = [];
   for (i = this.nVertex; i < 2 * this.nVertex; i++) {
@@ -564,6 +525,7 @@ Edmonds.prototype.unusedBlossomsInit = function () {
   }
   this.unusedBlossoms = unusedBlossoms;
 };
+
 Edmonds.prototype.inBlossomInit = function () {
   var i, inBlossom = [];
   for (i = 0; i < this.nVertex; i++) {
@@ -571,6 +533,7 @@ Edmonds.prototype.inBlossomInit = function () {
   }
   this.inBlossom = inBlossom;
 };
+
 Edmonds.prototype.neighbendInit = function () {
   var k, i, j;
   var neighbend = initArrArr(this.nVertex);
@@ -582,6 +545,7 @@ Edmonds.prototype.neighbendInit = function () {
   }
   this.neighbend = neighbend;
 };
+
 Edmonds.prototype.endpointInit = function () {
   var p;
   var endpoint = [];
@@ -590,6 +554,7 @@ Edmonds.prototype.endpointInit = function () {
   }
   this.endpoint = endpoint;
 };
+
 Edmonds.prototype.nVertexInit = function () {
   var nVertex = 0;
   for (var k = 0; k < this.nEdge; k++) {
@@ -600,6 +565,7 @@ Edmonds.prototype.nVertexInit = function () {
   }
   this.nVertex = nVertex;
 };
+
 Edmonds.prototype.maxWeightInit = function () {
   var maxWeight = 0;
   for (var k = 0; k < this.nEdge; k++) {
@@ -611,7 +577,6 @@ Edmonds.prototype.maxWeightInit = function () {
   this.maxWeight = maxWeight;
 };
 
-//HELPERS//
 function filledArray(len, fill) {
   var i, newArray = [];
   for (i = 0; i < len; i++) {
@@ -639,6 +604,5 @@ function getMin(arr, start, end) {
 }
 
 function pIndex(arr, idx) {
-  //if idx is negative, go from the back
   return idx < 0 ? arr[arr.length + idx] : arr[idx];
 }

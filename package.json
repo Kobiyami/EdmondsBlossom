@@ -11,7 +11,7 @@
     "blossom"
   ],
   "scripts": {
-    "test": "./node_modules/.bin/jasmine-node spec"
+    "test": "jasmine-node spec"
   },
   "repository": {
     "type": "git",
